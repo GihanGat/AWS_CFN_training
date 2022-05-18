@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  CFNTESTRole:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - 'ssm:StartSession'
+              - 'ssm:SendCommand'
+              - 'ssm:GetConnectionStatus'
+              - 'ssm:DescribeInstanceInformation'
+              - 'ssm:UpdateInstanceInformation'
+              - 'ssm:TerminateSession'
+              - 'ssm:ResumeSession'
+              - 'ssmmessages:CreateControlChannel'
+              - 'ssmmessages:CreateDataChannel'
+              - 'ssmmessages:OpenControlChannel'
+              - 'ssmmessages:OpenDataChannel'
+            Resource: "*"

@@ -1,0 +1,249 @@
+Resources:
+  CFNTESTRole:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - 'ssm:StartSession'
+              - 'ssm:SendCommand'
+              - 'ssm:GetConnectionStatus'
+              - 'ssm:DescribeInstanceInformation'
+              - 'ssm:UpdateInstanceInformation'
+              - 'ssm:TerminateSession'
+              - 'ssm:ResumeSession'
+              - 'ssmmessages:CreateControlChannel'
+              - 'ssmmessages:CreateDataChannel'
+              - 'ssmmessages:OpenControlChannel'
+              - 'ssmmessages:OpenDataChannel'
+            Resource: "*"
+                    
+  myVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.110.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+       - Key: stack
+         Value: production
+
+  myInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: stack
+        Value: production
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+         Ref: myVPC
+      InternetGatewayId:
+         Ref: myInternetGateway
+
+  myRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: myVPC
+      Tags:
+      - Key: stack
+        Value: production
+
+  myRoute:
+    Type: AWS::EC2::Route
+    Properties:
+       RouteTableId:
+         Ref: myRouteTable
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId:
+         Ref: myInternetGateway
+
+  myPublicSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      CidrBlock: 10.110.1.0/24
+      AvailabilityZone: "ca-central-1a"
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: stack
+        Value: production
+
+  myPublicSubnet1b:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      CidrBlock: 10.110.2.0/24
+      AvailabilityZone: "ca-central-1b"
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: stack
+        Value: production
+
+  myPrivateSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      CidrBlock: 10.110.3.0/24
+      AvailabilityZone: "ca-central-1a"
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: stack
+        Value: production
+
+  myPrivateSubnet1b:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      CidrBlock: 10.110.4.0/24
+      AvailabilityZone: "ca-central-1b"
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: stack
+        Value: production
+
+  mySubnetRouteTableAssociation1a:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: myPublicSubnet1a
+      RouteTableId:
+        Ref: myRouteTable
+
+  mySubnetRouteTableAssociation1b:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: myPublicSubnet1b
+      RouteTableId:
+        Ref: myRouteTable
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow http to client host"
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 8
+          ToPort: 65500
+          CidrIp: 0.0.0.0/0
+
+  NewKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: gmCFNlabkeypair
+
+  MyInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0843f7c45354d48b5
+      InstanceType: t2.micro
+      KeyName: !Ref NewKeyPair
+      SubnetId:
+        Ref: myPublicSubnet1a
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroup
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd.x86_64
+            systemctl start httpd.service
+            systemctl enable httpd.service
+            echo "Testing on $(hostname -f)"" > /var/www/html/index.html
+
+  NewVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      Size: 100
+      AvailabilityZone: !GetAtt MyInstance.AvailabilityZone
+      Tags:
+        - Key: MyTag
+          Value: TagValue
+    DeletionPolicy: Snapshot
+
+  MountPoint:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref MyInstance
+      VolumeId: !Ref NewVolume
+      Device: /dev/sdh
+
+  CFNTESTRole:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - 'ssm:StartSession'
+              - 'ssm:SendCommand'
+              - 'ssm:GetConnectionStatus'
+              - 'ssm:DescribeInstanceInformation'
+              - 'ssm:UpdateInstanceInformation'
+              - 'ssm:TerminateSession'
+              - 'ssm:ResumeSession'
+              - 'ssmmessages:CreateControlChannel'
+              - 'ssmmessages:CreateDataChannel'
+              - 'ssmmessages:OpenControlChannel'
+              - 'ssmmessages:OpenDataChannel'
+            Resource: "*"
+
+  EFSSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "security group for the prod EFS"
+      GroupName: "test-EFS-SG"
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 2049
+          ToPort: 2049
+
+  EFSFileSystem:
+    Type: 'AWS::EFS::FileSystem'
+    Properties:
+      AvailabilityZoneName: "ca-central-1a"
+      PerformanceMode: generalPurpose
+
+  MyInstanceEFS:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0843f7c45354d48b5
+      InstanceType: t2.micro
+      KeyName: !Ref NewKeyPair
+      SubnetId:
+        Ref: myPublicSubnet1a
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroup
+
+  MountTarget:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId:
+       Ref: EFSFileSystem
+      SubnetId:
+       Ref: myPrivateSubnet1a
+      SecurityGroups:
+       - Ref: EFSSecurityGroup

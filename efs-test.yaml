@@ -1,0 +1,49 @@
+Resources:
+  myVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.110.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+       - Key: stack
+         Value: production
+
+  myPrivateSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      CidrBlock: 10.110.3.0/24
+      AvailabilityZone: "ca-central-1a"
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: stack
+        Value: production
+
+  EFSFileSystem:
+    Type: 'AWS::EFS::FileSystem'
+    Properties:
+      AvailabilityZoneName: "ca-central-1a"
+      PerformanceMode: generalPurpose
+
+  EFSSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "security group for the prod EFS"
+      GroupName: "test-EFS-SG"
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 2049
+          ToPort: 2049
+
+  MountTarget:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId:
+       Ref: EFSFileSystem
+      SubnetId:
+       Ref: myPrivateSubnet1a
+      SecurityGroups:
+       - Ref: EFSSecurityGroup
